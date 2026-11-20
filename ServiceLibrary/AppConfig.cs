@@ -99,6 +99,15 @@ public sealed class AppConfig
     /// <summary>Liga DevTools (F12) e atalhos do navegador, para depurar o HUD.</summary>
     public bool Debug { get; set; } = false;
 
+    /// <summary>Procura, baixa e instala atualizações sozinho (só no app instalado pelo instalador).</summary>
+    public bool AutoUpdate { get; set; } = true;
+
+    /// <summary>Repositório do GitHub com as versões publicadas (Releases).</summary>
+    public string UpdateRepo { get; set; } = "https://github.com/TonyGuerra122/JarvisAssistant";
+
+    /// <summary>Aceita também versões de teste (pré-lançamentos) nas atualizações.</summary>
+    public bool UpdatePrerelease { get; set; } = false;
+
     /// <summary>Permite que o Jarvis execute ações no PC (abrir programas, mídia, rotinas...).</summary>
     public bool CommandsEnabled { get; set; } = true;
 

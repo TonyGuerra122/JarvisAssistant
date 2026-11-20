@@ -30,6 +30,7 @@
             case "confirm": Confirm.open(msg.id, msg.text); break;
             case "confirmClose": Confirm.close(msg.id); break;
             case "status": setStatus(msg); break;
+            case "update": Update.show(msg.status, msg.version); break;
         }
     }
 
@@ -46,6 +47,26 @@
         offline: "NÚCLEO OFFLINE",
         confirm: "AGUARDANDO CONFIRMAÇÃO"
     };
+
+    // ------------------------------------------------------------ atualização
+
+    const Update = {
+        show(status, version) {
+            const bar = $("updateBar"), text = $("updateText"), btn = $("updateBtn");
+            if (status === "downloading") {
+                text.textContent = `BAIXANDO ATUALIZAÇÃO ${version}…`;
+                btn.hidden = true;
+                bar.hidden = false;
+            } else if (status === "ready") {
+                text.textContent = `ATUALIZAÇÃO ${version} PRONTA · INSTALA AO FECHAR`;
+                btn.hidden = false;
+                bar.hidden = false;
+            } else {
+                bar.hidden = true; // erro: tenta de novo mais tarde, sem incomodar
+            }
+        }
+    };
+    $("updateBtn").addEventListener("click", () => send({ type: "applyUpdate" }));
 
     const Confirm = {
         id: null,

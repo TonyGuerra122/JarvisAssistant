@@ -655,3 +655,37 @@ body.ready .center .reveal {
         display: none;
     }
 }
+
+/* Aviso de atualização */
+#updateBar {
+    position: fixed;
+    left: 50%;
+    top: 14px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 16px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(6, 22, 90, .72);
+    color: var(--cyan-strong);
+    font-size: 11px;
+    letter-spacing: .18em;
+    z-index: 4;
+}
+
+#updateBar[hidden] { display: none; }
+
+#updateBar button {
+    font: inherit;
+    letter-spacing: .14em;
+    padding: 4px 12px;
+    border: 1px solid var(--cyan-dim);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cyan);
+    cursor: pointer;
+}
+
+#updateBar button:hover { background: rgba(111, 230, 255, .16); }

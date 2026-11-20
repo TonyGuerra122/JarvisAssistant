@@ -45,6 +45,27 @@ Para gerar um executável:
 dotnet publish GUI -c Release
 ```
 
+## Instalador e atualizações automáticas
+
+O app é distribuído com o [Velopack](https://velopack.io): um `Setup.exe` que instala por usuário (sem pedir administrador) em `%LOCALAPPDATA%\JarvisAssistantApp`, cria atalhos na Área de Trabalho e no Menu Iniciar e instala o WebView2 se faltar. Os dados (config, logs, voz clonada) ficam em `%APPDATA%` e `%LOCALAPPDATA%\JarvisAssistant`, separados do programa, então atualizar ou desinstalar não os apaga.
+
+**Atualizações.** Ao abrir (após 45 s) e a cada 6 horas o app consulta os *Releases* do repositório, baixa a versão nova em segundo plano (só a diferença, quando possível) e mostra um aviso no topo do HUD. A instalação acontece ao fechar o app; o botão **Reiniciar e atualizar** faz isso na hora. Só vale para o app instalado: pelo `dotnet run` nada é verificado.
+
+| Opção | Padrão | O que faz |
+|---|---|---|
+| `AutoUpdate` | `true` | Liga as atualizações automáticas |
+| `UpdateRepo` | `https://github.com/TonyGuerra122/JarvisAssistant` | Repositório com os Releases (precisa ser público) |
+| `UpdatePrerelease` | `false` | Aceita também versões de teste |
+
+**Publicar uma versão** (uma vez: `dotnet tool install -g vpk`):
+
+```powershell
+git tag v1.0.1
+git push origin v1.0.1      # o GitHub Actions (.github/workflows/release.yml) gera e publica tudo
+```
+
+Ou manualmente: `.\build\release.ps1 -Version 1.0.1` gera `Releases\JarvisAssistantApp-win-Setup.exe`; com `-Upload` (e `GITHUB_TOKEN` definido) também publica no GitHub. O número da versão vem da tag. O instalador não é assinado, então o Windows SmartScreen pode avisar na primeira instalação.
+
 ## Atalhos
 
 | Tecla              | Ação                       |

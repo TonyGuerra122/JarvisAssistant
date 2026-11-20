@@ -1,4 +1,5 @@
-﻿using Microsoft.Web.WebView2.Core;
+﻿using GUI.Updates;
+using Microsoft.Web.WebView2.Core;
 using ServiceLibrary;
 using System.ComponentModel;
 using System.IO;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window
 
     private readonly AppConfig _config;
     private Assistant? _assistant;
+    private UpdateService? _updates;
     private bool _closing;
 
     public MainWindow()
@@ -61,6 +63,7 @@ public partial class MainWindow : Window
         core.Settings.AreDevToolsEnabled = _config.Debug;
 
         _assistant = new Assistant(_config, PostToHud);
+        _updates = new UpdateService(_config, PostToHud);
         core.WebMessageReceived += OnWebMessage;
         core.Navigate("https://jarvis.local/index.html");
     }
@@ -89,6 +92,7 @@ public partial class MainWindow : Window
         {
             case "ready":
                 _ = _assistant.BootAsync();
+                _updates?.Start();
                 break;
             case "ptt": // push-to-talk (segurar espaço)
                 var down = msg["down"]?.GetValue<bool>() ?? false;
@@ -107,6 +111,10 @@ public partial class MainWindow : Window
                 var ok = msg["ok"]?.GetValue<bool>() ?? false;
                 _assistant.ResolveConfirm(id, ok);
                 break;
+            case "applyUpdate":
+                // Instala e reabre: a janela fecha pelo caminho normal, para encerrar os serviços filhos.
+                if (_updates?.ApplyAndRestart() == true) Close();
+                break;
             case "minimize":
                 WindowState = WindowState.Minimized;
                 break;
@@ -119,6 +127,8 @@ public partial class MainWindow : Window
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         _closing = true;
+        _updates?.ApplyOnExit();
+        _updates?.Dispose();
         _assistant?.Dispose();
     }
 }

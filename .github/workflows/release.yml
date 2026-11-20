@@ -1,0 +1,32 @@
+name: Release
+
+# Publica o instalador e o pacote de atualização quando uma tag de versão é enviada:
+#   git tag v1.0.1 && git push origin v1.0.1
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: ga
+
+      - name: Instalar o vpk
+        run: dotnet tool install -g vpk
+
+      - name: Empacotar e publicar
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          .\build\release.ps1 -Version $version -Upload -Repo "https://github.com/${{ github.repository }}"

@@ -11,12 +11,14 @@
 		<Product>J.A.R.V.I.S</Product>
 		<ApplicationIcon>Assets\jarvis.ico</ApplicationIcon>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<StartupObject>GUI.Program</StartupObject>
 		<SatelliteResourceLanguages>pt-BR;en</SatelliteResourceLanguages>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<None Include="web\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+		<PackageReference Include="Velopack" Version="1.2.161" />
 		<ProjectReference Include="..\ServiceLibrary\ServiceLibrary.csproj" />
 		<Resource Include="Assets\jarvis.ico" />
 	</ItemGroup>
