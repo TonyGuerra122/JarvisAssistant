@@ -74,13 +74,13 @@ public sealed class AppConfig
     public int CloneVoicePort { get; set; } = 8020;
 
     /// <summary>Velocidade da voz do OpenJarvis (1.0 = normal; menor = mais pausada, estilo mordomo).</summary>
-    public float VoiceSpeed { get; set; } = 0.9f;
+    public float VoiceSpeed { get; set; } = 1.0f;
 
     /// <summary>Tom da voz em semitons (negativo = mais grave; 0 = original). Ignorado na voz clonada.</summary>
-    public float VoicePitch { get; set; } = -0.8f;
+    public float VoicePitch { get; set; } = -0.5f;
 
     /// <summary>Efeito de "voz de IA" (graves + eco curto). 0 = desligado, 1 = sutil, 2 = forte.</summary>
-    public float VoiceEffect { get; set; } = 1f;
+    public float VoiceEffect { get; set; } = 0.7f;
 
     /// <summary>Nome de uma voz do Windows (ex.: "Microsoft Daniel"). Vazio = primeira voz pt-BR.</summary>
     public string WindowsVoiceName { get; set; } = "";

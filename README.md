@@ -79,9 +79,9 @@ As configurações ficam em `%APPDATA%\JarvisAssistant\config.json`, criado na p
 | `OpenJarvisVoiceId` | `"pm_alex"` | Voz do Kokoro |
 | `CloneVoiceFile` | `""` | Áudio (mp3/wav) com a voz a clonar |
 | `CloneVoicePort` | `8020` | Porta local do serviço de voz clonada |
-| `VoiceSpeed` | `0.9` | Velocidade da fala |
-| `VoicePitch` | `-0.8` | Tom em semitons (negativo = mais grave) |
-| `VoiceEffect` | `1` | Efeito de voz de IA: `0` desligado, `1` sutil, `2` forte |
+| `VoiceSpeed` | `1.0` | Velocidade da fala |
+| `VoicePitch` | `-0.5` | Tom em semitons (negativo = mais grave) |
+| `VoiceEffect` | `0.7` | Efeito de voz de IA: `0` desligado, `1` sutil, `2` forte |
 | `WindowsVoiceName` | `""` | Voz do Windows (vazio = primeira voz pt-BR) |
 | `GreetOnStart` | `true` | Cumprimenta ao terminar de iniciar |
 | `Personality` | *(mordomo britânico)* | Prompt de sistema; `{title}` vira o `UserTitle` |
