@@ -1,8 +1,11 @@
 ﻿using ServiceLibrary.Audio;
+using ServiceLibrary.Commands;
 using ServiceLibrary.Setup;
 using ServiceLibrary.VoiceClone;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace ServiceLibrary;
@@ -24,8 +27,9 @@ public sealed partial class Assistant : IDisposable
     private readonly SpeechPlayer _player = new();
     private readonly List<ChatTurn> _history = [];
     private readonly Lock _gate = new();
-
     private readonly VoiceCloneServer? _clone;
+    private readonly CommandRunner _commands;
+
     private bool _cloneVoice;
     private WindowsVoice? _windowsVoice;
     private CancellationTokenSource? _turn;
@@ -35,6 +39,9 @@ public sealed partial class Assistant : IDisposable
     private bool _remoteVoice;
     private int _bootState; // 0 = não iniciou, 1 = iniciando, 2 = pronto
     private string _state = "booting";
+    private bool _toolsUnsupported;
+    private TaskCompletionSource<bool>? _pendingConfirm;
+    private int _confirmSeq;
 
     public Assistant(AppConfig config, Action<object> post)
     {
@@ -42,6 +49,7 @@ public sealed partial class Assistant : IDisposable
         _post = post;
         _client = new(config.OpenJarvisUrl);
         _server = new(config);
+        _commands = new(config, ConfirmAsync);
         _player.PitchSemitones = config.VoicePitch;
         _player.EffectAmount = config.VoiceEffect;
         if (config.Voice.Equals("clone", StringComparison.OrdinalIgnoreCase)) _clone = new VoiceCloneServer(config.CloneVoicePort);
@@ -356,16 +364,79 @@ public sealed partial class Assistant : IDisposable
             _model ??= await _client.GetDefaultModelAsync(ct);
             SendStatus();
         }
-
         if (_model is null) throw new InvalidOperationException("nenhum modelo disponível no OpenJarvis.");
 
-        var messages = new List<ChatTurn> { new("system", BuildSystemPrompt()) };
-        lock (_gate) messages.AddRange(_history);
-        messages.Add(new ChatTurn("user", userText));
+        var messages = new JsonArray { Msg("system", BuildSystemPrompt()) };
+        lock (_gate)
+        {
+            foreach (var turn in _history) messages.Add(Msg(turn.Role, turn.Content));
+        }
+        messages.Add(Msg("user", userText));
 
-        var raw = await _client.ChatAsync(_model, messages, _config.MaxTokens, ct);
-        var reply = CleanReply(raw);
-        if (reply.Length == 0) reply = "Desculpe, não consegui formular uma resposta.";
+        var tools = _config.CommandsEnabled && !_toolsUnsupported ? _commands.BuildTools() : null;
+        var reply = "";
+        var actedSomething = false;
+
+        // Até 4 rodadas: o modelo pede ações, recebe os resultados e então responde.
+        for (int round = 0; round < 4; round++)
+        {
+            JsonObject message;
+            try
+            {
+                message = await _client.ChatRawAsync(_model, messages, tools, _config.MaxTokens, ct);
+            }
+            catch (HttpRequestException ex) when (tools is not null && ex.Message.Contains("tool", StringComparison.OrdinalIgnoreCase))
+            {
+                // Modelo sem suporte a ferramentas: segue só conversando.
+                Log.Error("Modelo sem suporte a ferramentas; comandos desativados nesta sessão", ex);
+                Caption("system", "Este modelo não suporta comandos. Vou só conversar.");
+                _toolsUnsupported = true;
+                tools = null;
+                round--;
+                continue;
+            }
+
+            var calls = message["tool_calls"] as JsonArray;
+            if (calls is null || calls.Count == 0)
+            {
+                reply = CleanReply(message["content"]?.ToString() ?? "");
+                break;
+            }
+
+            // Registra o pedido do modelo e executa cada ação.
+            messages.Add(new JsonObject
+            {
+                ["role"] = "assistant",
+                ["content"] = message["content"]?.ToString() ?? "",
+                ["tool_calls"] = calls.DeepClone(),
+            });
+
+            for (int i = 0; i < calls.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var call = calls[i];
+                var id = call?["id"]?.ToString();
+                if (string.IsNullOrEmpty(id)) id = $"call_{round}_{i}";
+                var name = call?["function"]?["name"]?.ToString() ?? "";
+                var args = ParseArgs(call?["function"]?["arguments"]);
+
+                Caption("system", "Executando: " + CommandRunner.Describe(name, args));
+                var result = await _commands.ExecuteAsync(name, args);
+                actedSomething = true;
+
+                messages.Add(new JsonObject
+                {
+                    ["role"] = "tool",
+                    ["tool_call_id"] = id,
+                    ["name"] = name,
+                    ["content"] = result,
+                });
+            }
+            SetState("thinking");
+        }
+
+        if (reply.Length == 0)
+            reply = actedSomething ? $"Feito, {_config.UserTitle}." : "Desculpe, não consegui formular uma resposta.";
 
         lock (_gate)
         {
@@ -374,8 +445,64 @@ public sealed partial class Assistant : IDisposable
             var max = Math.Max(0, _config.HistoryTurns) * 2;
             if (_history.Count > max) _history.RemoveRange(0, _history.Count - max);
         }
-
         return reply;
+    }
+
+    private static JsonObject Msg(string role, string content) =>
+        new() { ["role"] = role, ["content"] = content };
+
+    /// <summary>Os argumentos podem vir como objeto JSON ou como texto com JSON dentro.</summary>
+    private static JsonObject ParseArgs(JsonNode? raw)
+    {
+        try
+        {
+            if (raw is JsonObject obj) return (JsonObject)obj.DeepClone();
+            var text = raw?.ToString();
+            if (!string.IsNullOrWhiteSpace(text) && JsonNode.Parse(text) is JsonObject parsed) return parsed;
+        }
+        catch (JsonException) { /* argumentos inválidos: segue vazio */ }
+        return new JsonObject();
+    }
+
+    // ------------------------------------------------------------------ confirmação
+
+    /// <summary>Pergunta ao usuário (caixa no HUD + voz). Sem resposta em 30 s = não.</summary>
+    private async Task<bool> ConfirmAsync(string question)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int id;
+        lock (_gate)
+        {
+            _pendingConfirm?.TrySetResult(false);
+            _pendingConfirm = tcs;
+            id = ++_confirmSeq;
+        }
+
+        _post(new { type = "confirm", id, text = question });
+        Caption("jarvis", question.Split('\n')[0] + " Confirme com Enter ou cancele com Esc.");
+        try { await SpeakAsync(question.Split('\n')[0], CancellationToken.None); }
+        catch (Exception ex) { Log.Error("Falha ao falar a confirmação", ex); }
+        SetState("confirm");
+
+        var finished = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(30)));
+        var ok = finished == tcs.Task && tcs.Task.Result;
+
+        lock (_gate)
+        {
+            if (_pendingConfirm == tcs) _pendingConfirm = null;
+        }
+        _post(new { type = "confirmClose", id });
+        SetState("thinking");
+        return ok;
+    }
+
+    /// <summary>Resposta da caixa de confirmação do HUD.</summary>
+    public void ResolveConfirm(int id, bool ok)
+    {
+        lock (_gate)
+        {
+            if (id == _confirmSeq) _pendingConfirm?.TrySetResult(ok);
+        }
     }
 
     private string BuildSystemPrompt()
@@ -386,6 +513,14 @@ public sealed partial class Assistant : IDisposable
         sb.Append(now.ToString("dddd, d 'de' MMMM 'de' yyyy, HH:mm", PtBr));
         sb.Append($". Cidade do usuário: {_config.City}.");
         if (!string.IsNullOrWhiteSpace(WeatherSummary)) sb.Append($" Clima agora: {WeatherSummary}.");
+
+        if (_config.CommandsEnabled && !_toolsUnsupported)
+        {
+            sb.Append("\n\nVocê pode executar ações no computador com as ferramentas disponíveis. ");
+            sb.Append("Use uma ferramenta só quando o usuário pedir uma ação. ");
+            sb.Append("Nunca diga que fez algo sem ter usado a ferramenta. Depois, confirme em uma frase curta.");
+        }
+
         return sb.ToString();
     }
 
@@ -546,7 +681,11 @@ public sealed partial class Assistant : IDisposable
 
     public void Dispose()
     {
-        lock (_gate) _turn?.Cancel();
+        lock (_gate)
+        {
+            _turn?.Cancel();
+            _pendingConfirm?.TrySetResult(false);
+        }
         _mic.Dispose();
         _server.Dispose();
         _clone?.Dispose();

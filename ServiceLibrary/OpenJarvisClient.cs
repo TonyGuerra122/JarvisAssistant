@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json.Nodes;
 
 namespace ServiceLibrary;
@@ -113,6 +114,29 @@ public sealed class OpenJarvisClient : IDisposable
         await EnsureOk(res, "síntese de voz");
 
         return await res.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    /// <summary>
+    /// Chat com suporte a ferramentas (function calling). Devolve a mensagem do
+    /// assistente inteira: pode ter "content" (texto) e/ou "tool_calls" (ações pedidas).
+    /// </summary>
+    public async Task<JsonObject> ChatRawAsync(string model, JsonArray messages, JsonArray? tools, int maxTokens, CancellationToken ct = default)
+    {
+        var body = new JsonObject
+        {
+            ["model"] = model,
+            ["messages"] = messages.DeepClone(),
+            ["max_tokens"] = maxTokens,
+            ["temperature"] = 0.4,
+            ["stream"] = false,
+        };
+        if (tools is { Count: > 0 }) body["tools"] = tools.DeepClone();
+
+        using var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+        using var res = await _http.PostAsync("v1/chat/completions", content, ct);
+        await EnsureOk(res, "resposta do modelo");
+        var json = await res.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct);
+        return json?["choices"]?[0]?["message"] as JsonObject ?? [];
     }
 
     private static async Task EnsureOk(HttpResponseMessage res, string what)

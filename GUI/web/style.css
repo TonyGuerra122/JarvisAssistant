@@ -449,6 +449,77 @@ kbd {
         color: var(--cyan-dim);
     }
 
+/* ---------- confirmação de comandos ---------- */
+
+#confirmBox {
+    position: fixed;
+    left: 50%;
+    top: 44%;
+    transform: translate(-50%, -50%);
+    width: min(560px, 86vw);
+    padding: 22px 24px;
+    border: 1px solid rgba(255, 196, 107, .7);
+    border-radius: 12px;
+    background: rgba(20, 14, 4, .88);
+    box-shadow: 0 0 40px rgba(255, 196, 107, .35);
+    color: #ffe9c4;
+    z-index: 5;
+    animation: typein .2s ease-out;
+}
+
+.c-title {
+    font-size: 11px;
+    letter-spacing: .3em;
+    color: var(--warn);
+    margin-bottom: 12px;
+}
+
+#confirmText {
+    font-size: 18px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.c-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+    justify-content: flex-end;
+}
+
+    .c-actions button {
+        padding: 8px 16px;
+        border: 1px solid rgba(255, 196, 107, .6);
+        border-radius: 8px;
+        background: transparent;
+        color: #ffe9c4;
+        font: 13px var(--font);
+        letter-spacing: .15em;
+        cursor: pointer;
+    }
+
+        .c-actions button:hover {
+            background: rgba(255, 196, 107, .15);
+        }
+
+    .c-actions kbd {
+        margin-left: 6px;
+        color: var(--warn);
+        border-color: rgba(255, 196, 107, .4);
+    }
+
+body[data-state="confirm"] #statePill {
+    color: var(--warn);
+    border-color: rgba(255, 196, 107, .6);
+}
+
+    body[data-state="confirm"] #statePill i {
+        background: var(--warn);
+        box-shadow: 0 0 10px var(--warn);
+        animation: blink .5s infinite alternate;
+    }
+
 /* ---------- tela de inicialização ---------- */
 
 #boot {
@@ -584,4 +655,3 @@ body.ready .center .reveal {
         display: none;
     }
 }
-

@@ -99,6 +99,36 @@ public sealed class AppConfig
     /// <summary>Liga DevTools (F12) e atalhos do navegador, para depurar o HUD.</summary>
     public bool Debug { get; set; } = false;
 
+    /// <summary>Permite que o Jarvis execute ações no PC (abrir programas, mídia, rotinas...).</summary>
+    public bool CommandsEnabled { get; set; } = true;
+
+    /// <summary>Programas que ele pode abrir: nome falado → executável, caminho ou URI.</summary>
+    public Dictionary<string, string> Programs { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["navegador"] = "msedge",
+        ["bloco de notas"] = "notepad",
+        ["calculadora"] = "calc",
+        ["explorador de arquivos"] = "explorer",
+        ["configurações"] = "ms-settings:",
+        ["spotify"] = "spotify:",
+    };
+
+    /// <summary>Rotinas suas: nome → comando do PowerShell. Ex.: "modo trabalho".</summary>
+    public Dictionary<string, string> Routines { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["abrir downloads"] = "Start-Process \"$env:USERPROFILE\\Downloads\"",
+        ["esvaziar lixeira"] = "Clear-RecycleBin -Force -ErrorAction SilentlyContinue",
+    };
+
+    /// <summary>Pede confirmação antes de rodar uma rotina.</summary>
+    public bool ConfirmRoutines { get; set; } = true;
+
+    /// <summary>
+    /// Deixa o modelo escrever comandos livres de PowerShell (sempre com confirmação).
+    /// Desligado por padrão: o modelo pode errar ou ser enganado por textos que ele lê.
+    /// </summary>
+    public bool AllowPowerShell { get; set; } = false;
+
     private static readonly JsonSerializerOptions Opts = new()
     {
         WriteIndented = true,
@@ -124,6 +154,10 @@ public sealed class AppConfig
             Log.Error("config.json inválido, usando valores padrão", ex);
             return new AppConfig();
         }
+
+        // O JSON não guarda o "ignorar maiúsculas" dos dicionários; recoloca aqui.
+        config?.Programs = new Dictionary<string, string>(config.Programs ?? [], StringComparer.OrdinalIgnoreCase);
+        config?.Routines = new Dictionary<string, string>(config.Routines ?? [], StringComparer.OrdinalIgnoreCase);
 
         // Regrava para acrescentar opções novas sem perder as do usuário.
         try { File.WriteAllText(file, JsonSerializer.Serialize(config, Opts)); }

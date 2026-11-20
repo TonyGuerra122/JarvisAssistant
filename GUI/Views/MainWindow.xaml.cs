@@ -102,6 +102,11 @@ public partial class MainWindow : Window
             case "weather":
                 _assistant.WeatherSummary = msg["summary"]?.GetValue<string>();
                 break;
+            case "confirmReply":
+                var id = msg["id"]?.GetValue<int>() ?? -1;
+                var ok = msg["ok"]?.GetValue<bool>() ?? false;
+                _assistant.ResolveConfirm(id, ok);
+                break;
             case "minimize":
                 WindowState = WindowState.Minimized;
                 break;

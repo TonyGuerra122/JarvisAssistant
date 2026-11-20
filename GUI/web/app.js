@@ -27,6 +27,8 @@
             case "state": setState(msg.state); break;
             case "level": Orb.level = msg.value; break;
             case "caption": Caption.show(msg.role, msg.text); break;
+            case "confirm": Confirm.open(msg.id, msg.text); break;
+            case "confirmClose": Confirm.close(msg.id); break;
             case "status": setStatus(msg); break;
         }
     }
@@ -42,7 +44,31 @@
         thinking: "PROCESSANDO",
         speaking: "FALANDO",
         offline: "NÚCLEO OFFLINE",
+        confirm: "AGUARDANDO CONFIRMAÇÃO"
     };
+
+    const Confirm = {
+        id: null,
+        open(id, text) {
+            this.id = id;
+            $("confirmText").textContent = text;
+            $("confirmBox").hidden = false;
+        },
+        close(id) {
+            if (id !== undefined && id !== this.id) return;
+            this.id = null;
+            $("confirmBox").hidden = true;
+        },
+        answer(ok) {
+            if (this.id === null) return;
+            send({ type: "confirmReply", id: this.id, ok });
+            this.close();
+        },
+        get isOpen() { return this.id !== null; },
+    };
+
+    $("confirmYes").addEventListener("click", () => Confirm.answer(true));
+    $("confirmNo").addEventListener("click", () => Confirm.answer(false));
 
     function setState(state) {
         document.body.dataset.state = state;
@@ -254,7 +280,7 @@
             this.smooth += (target - this.smooth) * (target > this.smooth ? 0.45 : 0.08);
             const lv = this.smooth;
 
-            const hueTarget = { idle: 190, listening: 160, thinking: 215, speaking: 188, offline: 350, booting: 195 }[st] ?? 190;
+            const hueTarget = { idle: 190, listening: 160, thinking: 215, speaking: 188, offline: 350, booting: 195, confirm: 40 }[st] ?? 190;
             this.hue += (hueTarget - this.hue) * 0.05;
             const hue = st === "thinking" ? this.hue + Math.sin(t * 3) * 25 : this.hue;
             const sat = st === "offline" ? 55 : 100;
@@ -365,11 +391,19 @@
 
     function ptt(down) {
         if (down === pttDown || !document.body.classList.contains("ready")) return;
+        if (down && Confirm.isOpen) return;
         pttDown = down;
         send({ type: "ptt", down });
     }
 
     addEventListener("keydown", (e) => {
+        if (Confirm.isOpen) { // durante a confirmação, só Enter/S ou Esc/N
+            e.preventDefault();
+            if (e.key === "Enter" || e.key === "s" || e.key === "S") Confirm.answer(true);
+            else if (e.key === "Escape" || e.key === "n" || e.key === "N") Confirm.answer(false);
+            return;
+        }
+
         if (typing()) {
             if (e.key === "Escape") hideType();
             return;
