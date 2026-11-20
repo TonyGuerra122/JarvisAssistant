@@ -108,6 +108,27 @@ public sealed class AppConfig
     /// <summary>Aceita também versões de teste (pré-lançamentos) nas atualizações.</summary>
     public bool UpdatePrerelease { get; set; } = false;
 
+    /// <summary>Fechar a janela (Alt+F4, Esc) manda o Jarvis para a bandeja e ele continua rodando; "Sair" fica no ícone da bandeja ou em Ctrl+Q.</summary>
+    public bool RunInBackground { get; set; } = true;
+
+    /// <summary>Abre junto com o Windows, escondido na bandeja (só no app instalado).</summary>
+    public bool StartWithWindows { get; set; } = true;
+
+    /// <summary>Microfone sempre aberto: o Jarvis espera ouvir a <see cref="WakeWord"/> em vez de exigir apertar Espaço.</summary>
+    public bool AlwaysListen { get; set; } = true;
+
+    /// <summary>Palavra de ativação do modo "sempre ouvindo". Tolera pequenos erros de transcrição.</summary>
+    public string WakeWord { get; set; } = "jarvis";
+
+    /// <summary>Segundos, depois que o Jarvis termina de falar, em que você pode responder sem dizer o nome de novo (0 = desliga).</summary>
+    public int FollowUpSeconds { get; set; } = 8;
+
+    /// <summary>Permite confirmar ações dizendo "sim" ou "não" (só confirmações curtas; PowerShell exige Enter).</summary>
+    public bool VoiceConfirm { get; set; } = true;
+
+    /// <summary>Sensibilidade do detector de voz: maior = pega voz mais baixa (e mais ruído). Padrão 1.</summary>
+    public float ListenSensitivity { get; set; } = 1f;
+
     /// <summary>Permite que o Jarvis execute ações no PC (abrir programas, mídia, rotinas...).</summary>
     public bool CommandsEnabled { get; set; } = true;
 
@@ -219,6 +240,13 @@ public sealed class AppConfig
         catch (Exception ex) { Log.Error("Não consegui salvar config.json", ex); }
 
         return config ?? new AppConfig();
+    }
+
+    /// <summary>Grava as opções no config.json (usado quando algo é alterado pela bandeja).</summary>
+    public void Save()
+    {
+        try { File.WriteAllText(AppPaths.ConfigFile, JsonSerializer.Serialize(this, Opts)); }
+        catch (Exception ex) { Log.Error("Não consegui salvar config.json", ex); }
     }
 
     public string ResolveJarvisCommand()

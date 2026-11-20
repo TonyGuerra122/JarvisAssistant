@@ -7,9 +7,12 @@ namespace GUI;
 
 public partial class App : Application
 {
-    private Mutex? _singleInstance;
+    private const string ShowEventName = @"Local\JarvisAssistant.Show";
 
-    /// <summary>True quando o Windows abriu o app pela pasta Inicializar.</summary>
+    private Mutex? _singleInstance;
+    private EventWaitHandle? _showSignal;
+
+    /// <summary>True quando o Windows abriu o app junto com o login (ele começa escondido na bandeja).</summary>
     public static bool LaunchedAtStartup { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -17,7 +20,9 @@ public partial class App : Application
         _singleInstance = new(true, @"Local\JarvisAssistant.SingleInstance", out bool first);
         if (!first)
         {
-            // Já tem um J.A.R.V.I.S aberto: não abre outro.
+            // Já tem um J.A.R.V.I.S rodando (talvez escondido na bandeja): pede para ele aparecer.
+            try { EventWaitHandle.OpenExisting(ShowEventName).Set(); }
+            catch { /* o outro ainda está iniciando */ }
             Shutdown();
             return;
         }
@@ -30,6 +35,25 @@ public partial class App : Application
         var window = new MainWindow();
         MainWindow = window;
         window.Show();
+
+        ListenForShowRequests(window);
+    }
+
+    /// <summary>Quando alguém abre o programa de novo, mostra a janela que já existe.</summary>
+    private void ListenForShowRequests(MainWindow window)
+    {
+        _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        var signal = _showSignal;
+        new Thread(() =>
+        {
+            try
+            {
+                while (signal.WaitOne())
+                    Dispatcher.BeginInvoke(window.ShowFromTray);
+            }
+            catch (ObjectDisposedException) { /* app fechando */ }
+        })
+        { IsBackground = true, Name = "JarvisShowSignal" }.Start();
     }
 
     private void OnUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
@@ -40,8 +64,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _showSignal?.Dispose();
         _singleInstance?.Dispose();
         base.OnExit(e);
     }
-
 }

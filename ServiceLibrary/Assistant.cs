@@ -49,7 +49,7 @@ public sealed partial class Assistant : IDisposable
         _post = post;
         _client = new(config.OpenJarvisUrl);
         _server = new(config);
-        _commands = new(config, ConfirmAsync, NotifyAsync);
+        _commands = new(config, ConfirmAsync, NotifyAsync, () => _quitRequested = true);
         _player.PitchSemitones = config.VoicePitch;
         _player.EffectAmount = config.VoiceEffect;
         if (config.Voice.Equals("clone", StringComparison.OrdinalIgnoreCase)) _clone = new VoiceCloneServer(config.CloneVoicePort);
@@ -94,6 +94,7 @@ public sealed partial class Assistant : IDisposable
 
         // Liga alarmes e lembretes salvos (e avisa o que passou com o app fechado).
         if (_config.CommandsEnabled) _commands.Start();
+        StartAlwaysListening();
 
         if (_config.GreetOnStart)
         {
@@ -334,11 +335,12 @@ public sealed partial class Assistant : IDisposable
                 SetState("thinking");
                 var userText = await getUserText(ct);
                 if (string.IsNullOrWhiteSpace(userText)) return;
-                reply = await AskAsync(userText, ct);
+                reply = await TryQuitPhraseAsync(userText, ct) ?? await AskAsync(userText, ct);
             }
 
             Caption("jarvis", reply);
             await SpeakAsync(reply, ct);
+            MarkFollowUp();
         }
         catch (OperationCanceledException)
         {
@@ -351,6 +353,7 @@ public sealed partial class Assistant : IDisposable
         }
         finally
         {
+            FinishQuitIfRequested(); // se pediram para encerrar, fecha o app agora que a despedida terminou
             lock (_gate)
             {
                 if (_turn == cts && !_mic.IsRecording) SetState(_online ? "idle" : "offline");
@@ -565,6 +568,7 @@ public sealed partial class Assistant : IDisposable
             _pendingConfirm?.TrySetResult(false);
             _pendingConfirm = tcs;
             id = ++_confirmSeq;
+            _confirmAllowsVoice = _config.VoiceConfirm && !question.Contains((char)10);
         }
 
         _post(new { type = "confirm", id, text = question });
@@ -645,7 +649,7 @@ public sealed partial class Assistant : IDisposable
         return sb.ToString();
     }
 
-    private async Task SpeakAsync(string text, CancellationToken ct)
+    private async Task SpeakCoreAsync(string text, CancellationToken ct)
     {
         var chunks = SplitForSpeech(text);
         if (chunks.Count == 0) return;
@@ -811,6 +815,7 @@ public sealed partial class Assistant : IDisposable
             _turn?.Cancel();
             _pendingConfirm?.TrySetResult(false);
         }
+        _vad?.Dispose();
         _mic.Dispose();
         _commands.Dispose();
         _server.Dispose();

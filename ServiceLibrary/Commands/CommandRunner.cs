@@ -15,11 +15,12 @@ namespace ServiceLibrary.Commands;
 /// <param name="config">Configuração do app.</param>
 /// <param name="confirm">Pergunta ao usuário (texto, cancelamento) e devolve se ele autorizou.</param>
 /// <param name="notify">Fala um aviso por iniciativa própria (usado por temporizadores, alarmes e lembretes).</param>
-public sealed partial class CommandRunner(AppConfig config, Func<string, CancellationToken, Task<bool>> confirm, Func<string, Task> notify) : IDisposable
+public sealed partial class CommandRunner(AppConfig config, Func<string, CancellationToken, Task<bool>> confirm, Func<string, Task> notify, Action requestQuit) : IDisposable
 {
     private readonly AppConfig _config = config;
     private readonly Func<string, CancellationToken, Task<bool>> _confirm = confirm;
     private readonly Func<string, Task> _notify = notify;
+    private readonly Action _requestQuit = requestQuit;
 
     /// <summary>Ações que SEMPRE confirmam, mesmo se a política disser "auto".</summary>
     private static readonly HashSet<string> AlwaysConfirm = ["energia", "executar_powershell", "fechar_programa"];
@@ -38,7 +39,7 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
 
     /// <summary>Ações que fazem a própria confirmação (com texto mais específico) em vez da genérica.</summary>
     private static bool ConfirmsInternally(string name) =>
-        AlwaysConfirm.Contains(name) || name == "executar_rotina";
+        AlwaysConfirm.Contains(name) || name is "executar_rotina" or "encerrar_jarvis";
 
     // ------------------------------------------------------------------ definição das ferramentas
 
@@ -99,6 +100,7 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         Add(Tool("buscar_youtube", "Abre a busca de um vídeo no YouTube, no navegador.",
             Props(("consulta", Str("O que procurar")))), "buscar_youtube");
         Add(Tool("captura_tela", "Tira uma captura da tela e salva em Imagens.", Props()), "captura_tela");
+        Add(Tool("encerrar_jarvis", "Encerra o próprio J.A.R.V.I.S por completo (ele para de ouvir e o programa fecha). Use só quando o usuário pedir para encerrar, fechar ou desligar o Jarvis/assistente; NÃO serve para desligar o computador nem fechar outros programas.", Props()), "encerrar_jarvis");
 
         if (_config.Routines.Count > 0)
             Add(Tool("executar_rotina", "Executa uma rotina criada pelo usuário.",
@@ -135,6 +137,7 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         "spotify" => $"Spotify: {S(args, "acao")} {S(args, "consulta")}".TrimEnd(),
         "buscar_youtube" => $"YouTube: \"{S(args, "consulta")}\"",
         "captura_tela" => "capturando a tela",
+        "encerrar_jarvis" => "encerrando o Jarvis",
         "executar_rotina" => $"rotina \"{S(args, "nome")}\"",
         "executar_powershell" => "comando do PowerShell",
         _ => name,
@@ -199,6 +202,7 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
             "spotify" => await SpotifyAsync(S(args, "acao"), S(args, "consulta"), I(args, "nivel"), ct),
             "buscar_youtube" => SearchYouTube(S(args, "consulta")),
             "captura_tela" => await ScreenshotAsync(ct),
+            "encerrar_jarvis" => await QuitJarvisAsync(ct),
             "executar_rotina" => await RoutineAsync(S(args, "nome"), ct),
             "executar_powershell" when _config.AllowPowerShell => await PowerShellAsync(S(args, "comando"), ct),
             _ => $"A ferramenta \"{name}\" não existe.",
@@ -299,6 +303,16 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         keybd_event(key, 0, 0, UIntPtr.Zero);
         keybd_event(key, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
         return done;
+    }
+
+    /// <summary>Pede ao app para fechar depois que o Jarvis terminar de se despedir (confirma, se a política mandar).</summary>
+    private async Task<string> QuitJarvisAsync(CancellationToken ct)
+    {
+        if (PolicyOf("encerrar_jarvis") == "confirmar" && !await _confirm("Encerrar o J.A.R.V.I.S por completo?", ct))
+            return "O usuário não autorizou.";
+
+        _requestQuit();
+        return "Encerrando o J.A.R.V.I.S agora. Despeça-se em uma frase curta.";
     }
 
     private static string LockScreen()

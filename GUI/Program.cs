@@ -11,7 +11,9 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        VelopackApp.Build().Run();
+        VelopackApp.Build()
+            .OnBeforeUninstallFastCallback(_ => GUI.Tray.StartupRegistration.Set(false)) // não deixa a entrada "abrir com o Windows" órfã
+            .Run();
 
         var app = new App();
         app.InitializeComponent();

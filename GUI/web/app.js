@@ -31,6 +31,7 @@
             case "confirmClose": Confirm.close(msg.id); break;
             case "status": setStatus(msg); break;
             case "update": Update.show(msg.status, msg.version); break;
+            case "listenMode": MicMode.show(msg.always, msg.word); break;
         }
     }
 
@@ -47,6 +48,20 @@
         offline: "NÚCLEO OFFLINE",
         confirm: "AGUARDANDO CONFIRMAÇÃO"
     };
+
+    // ------------------------------------------------------------ microfone sempre aberto
+
+    const MicMode = {
+        show(always, word) {
+            const el = $("micMode");
+            el.hidden = false;
+            el.classList.toggle("on", !!always);
+            el.querySelector("span").textContent = always
+                ? `MIC ABERTO · DIGA “${String(word || "jarvis").toUpperCase()}”`
+                : "MIC FECHADO · SEGURE ESPAÇO";
+        }
+    };
+    $("micMode").addEventListener("click", () => send({ type: "toggleListen" }));
 
     // ------------------------------------------------------------ atualização
 

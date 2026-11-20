@@ -689,3 +689,30 @@ body.ready .center .reveal {
 }
 
 #updateBar button:hover { background: rgba(111, 230, 255, .16); }
+
+/* Indicador do microfone sempre aberto */
+#micMode {
+    position: fixed;
+    left: 24px;
+    bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(6, 22, 90, .45);
+    color: var(--cyan-dim);
+    font-size: 10px;
+    letter-spacing: .2em;
+    cursor: pointer;
+    z-index: 3;
+    user-select: none;
+}
+
+#micMode[hidden] { display: none; }
+#micMode i { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan-dim); }
+#micMode.on { color: var(--cyan-strong); border-color: var(--cyan-dim); }
+#micMode.on i { background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: micpulse 2.4s ease-in-out infinite; }
+
+@keyframes micpulse { 50% { opacity: .35; } }

@@ -6,6 +6,7 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UseWPF>true</UseWPF>
+		<UseWindowsForms>true</UseWindowsForms>
 		<AssemblyName>JarvisAssistant</AssemblyName>
 		<Version>1.0.0</Version>
 		<Product>J.A.R.V.I.S</Product>
@@ -14,6 +15,12 @@
 		<StartupObject>GUI.Program</StartupObject>
 		<SatelliteResourceLanguages>pt-BR;en</SatelliteResourceLanguages>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- O WinForms entra só para o NotifyIcon (bandeja); sem estes, "Application" e "MessageBox" ficam ambíguos com o WPF. -->
+		<Using Remove="System.Windows.Forms" />
+		<Using Remove="System.Drawing" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<None Include="web\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

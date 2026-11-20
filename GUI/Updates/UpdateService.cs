@@ -14,6 +14,9 @@ public sealed class UpdateService : IDisposable
     private static readonly TimeSpan FirstDelay = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
 
+    /// <summary>A atualização terminou de baixar.</summary>
+    public event Action? ReadyToInstall;
+
     private readonly Action<object> _post;
     private readonly UpdateManager? _manager;
     private readonly CancellationTokenSource _stop = new();
@@ -74,6 +77,7 @@ public sealed class UpdateService : IDisposable
 
             await _manager.DownloadUpdatesAsync(info, cancelToken: ct);
             lock (_gate) _ready = info;
+            ReadyToInstall?.Invoke();
 
             Log.Info($"Atualizador: versão {version} baixada e pronta.");
             _post(new { type = "update", status = "ready", version });
@@ -88,12 +92,12 @@ public sealed class UpdateService : IDisposable
     }
 
     /// <summary>Instala ao fechar o app e reabre. Quem chama deve fechar a janela em seguida.</summary>
-    public bool ApplyAndRestart() => Queue(restart: true);
+    public bool ApplyAndRestart(bool hidden = false) => Queue(restart: true, hidden);
 
     /// <summary>Instala em silêncio depois que o app fechar, sem reabrir. Usado ao sair normalmente.</summary>
     public void ApplyOnExit() => Queue(restart: false);
 
-    private bool Queue(bool restart)
+    private bool Queue(bool restart, bool hidden = false)
     {
         lock (_gate)
         {
@@ -101,7 +105,7 @@ public sealed class UpdateService : IDisposable
             if (_applyQueued && !restart) return true;
             try
             {
-                _manager.WaitExitThenApplyUpdates(_ready, silent: true, restart: restart);
+                _manager.WaitExitThenApplyUpdates(_ready, silent: true, restart: restart, restartArgs: hidden ? ["--startup"] : []);
                 _applyQueued = true;
                 Log.Info($"Atualizador: versão {_ready.TargetFullRelease.Version} será instalada ao fechar (reabrir: {restart}).");
                 return true;
