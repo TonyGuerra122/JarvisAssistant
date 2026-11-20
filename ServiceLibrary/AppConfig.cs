@@ -166,7 +166,8 @@ public sealed class AppConfig
         ["area_transferencia"] = "auto",
         ["abrir_pasta"] = "auto",
         ["buscar_arquivo"] = "auto",
-        ["tocar_musica"] = "auto",
+        ["spotify"] = "auto",
+        ["buscar_youtube"] = "auto",
         ["captura_tela"] = "auto",
     };
 

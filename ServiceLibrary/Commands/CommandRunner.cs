@@ -95,9 +95,13 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
             Props(("nome", Str("Parte do nome do arquivo")),
                   ("pasta", Str("Onde procurar (opcional): downloads, documentos, área de trabalho, imagens, músicas, vídeos"))),
             required: ["nome"]), "buscar_arquivo");
-        Add(Tool("tocar_musica", "Abre a busca de uma música ou vídeo no Spotify ou no YouTube.",
-            Props(("plataforma", Choice("Onde", ["spotify", "youtube"])),
-                  ("consulta", Str("Música, artista ou vídeo")))), "tocar_musica");
+        Add(Tool("spotify", "Controla o Spotify do computador: tocar uma música/artista/playlist pela busca, ver o que está tocando, volume só do Spotify, modo aleatório e repetição. Para pausar e trocar de faixa use controlar_midia.",
+            Props(("acao", Choice("Ação", ["tocar", "tocando_agora", "volume", "aleatorio", "repetir"])),
+                  ("consulta", Str("Para 'tocar': música, artista ou playlist")),
+                  ("nivel", Int("Para 'volume': de 0 a 100"))),
+            required: ["acao"]), "spotify");
+        Add(Tool("buscar_youtube", "Abre a busca de um vídeo no YouTube, no navegador.",
+            Props(("consulta", Str("O que procurar")))), "buscar_youtube");
         Add(Tool("captura_tela", "Tira uma captura da tela e salva em Imagens.", Props()), "captura_tela");
 
         if (_config.Routines.Count > 0)
@@ -130,7 +134,8 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         "area_transferencia" => $"área de transferência: {S(args, "acao")}",
         "abrir_pasta" => $"abrindo {S(args, "caminho")}",
         "buscar_arquivo" => $"procurando \"{S(args, "nome")}\"",
-        "tocar_musica" => $"{S(args, "plataforma")}: \"{S(args, "consulta")}\"",
+        "spotify" => $"Spotify: {S(args, "acao")} {S(args, "consulta")}".TrimEnd(),
+        "buscar_youtube" => $"YouTube: \"{S(args, "consulta")}\"",
         "captura_tela" => "capturando a tela",
         "executar_rotina" => $"rotina \"{S(args, "nome")}\"",
         "executar_powershell" => "comando do PowerShell",
@@ -191,7 +196,8 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
             "area_transferencia" => await ClipboardAsync(S(args, "acao"), S(args, "texto"), ct),
             "abrir_pasta" => OpenPath(S(args, "caminho")),
             "buscar_arquivo" => await FindFilesAsync(S(args, "nome"), S(args, "pasta"), ct),
-            "tocar_musica" => PlayMusic(S(args, "plataforma"), S(args, "consulta")),
+            "spotify" => await SpotifyAsync(S(args, "acao"), S(args, "consulta"), I(args, "nivel"), ct),
+            "buscar_youtube" => SearchYouTube(S(args, "consulta")),
             "captura_tela" => await ScreenshotAsync(ct),
             "executar_rotina" => await RoutineAsync(S(args, "nome"), ct),
             "executar_powershell" when _config.AllowPowerShell => await PowerShellAsync(S(args, "comando"), ct),
@@ -273,14 +279,9 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         return $"Pesquisa por \"{query}\" aberta no navegador.";
     }
 
-    private static string PlayMusic(string plataforma, string consulta)
+    private static string SearchYouTube(string consulta)
     {
-        if (string.IsNullOrWhiteSpace(consulta)) return "O que tocar?";
-        if (plataforma.Equals("spotify", StringComparison.OrdinalIgnoreCase))
-        {
-            ShellOpen("spotify:search:" + Uri.EscapeDataString(consulta));
-            return $"Busca por \"{consulta}\" aberta no Spotify. Ainda é preciso escolher o resultado e tocar.";
-        }
+        if (string.IsNullOrWhiteSpace(consulta)) return "O que procurar?";
         ShellOpen("https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(consulta));
         return $"Busca por \"{consulta}\" aberta no YouTube. Ainda é preciso escolher o vídeo.";
     }
