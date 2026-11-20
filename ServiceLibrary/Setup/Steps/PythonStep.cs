@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace ServiceLibrary.Setup.Steps;
 
 /// <summary>
-/// Python 3.11–3.13 (o 3.14 ainda não tem numpy para Windows).
+/// Python 3.11–3.13 (o 3.14 ainda não tem numpy para Windows). O Python da Microsoft Store é ignorado.
 /// Se não houver, o uv baixa um Python próprio — sem mexer no Python do sistema.
 /// </summary>
 public sealed partial class PythonStep : InstallStep
@@ -49,6 +49,10 @@ public sealed partial class PythonStep : InstallStep
         var m = VersionRegex().Match(r.Output);
         if (!r.Ok || !m.Success) return false;
 
+        // O Python da Microsoft Store roda isolado (MSIX) e redireciona gravações em AppData: o maturin baixa o
+        // rustup num caminho que o processo filho não enxerga. Por isso nunca é usado; o uv baixa um Python próprio.
+        if (IsStorePython(exe)) return false;
+
         var minor = int.Parse(m.Groups[2].Value);
         if (m.Groups[1].Value != "3" || minor is < 11 or > 13) return false;
 
@@ -56,6 +60,10 @@ public sealed partial class PythonStep : InstallStep
         ctx.PythonVersion = m.Value;
         return true;
     }
+
+    /// <summary>True para o Python instalado pela Microsoft Store (pasta WindowsApps).</summary>
+    public static bool IsStorePython(string? path) =>
+        path?.Contains(@"\WindowsApps\", StringComparison.OrdinalIgnoreCase) == true;
 
     [GeneratedRegex(@"(\d+)\.(\d+)\.\d+")]
     private static partial Regex VersionRegex();
