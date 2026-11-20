@@ -92,6 +92,9 @@ public sealed partial class Assistant : IDisposable
         _post(new { type = "bootDone" });
         SetState(_online ? "idle" : "offline");
 
+        // Liga alarmes e lembretes salvos (e avisa o que passou com o app fechado).
+        if (_config.CommandsEnabled) _commands.Start();
+
         if (_config.GreetOnStart)
         {
             var greeting = $"{Greeting()}, {_config.UserTitle}. " + (_online

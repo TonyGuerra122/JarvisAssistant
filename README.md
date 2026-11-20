@@ -96,9 +96,9 @@ As configurações ficam em `%APPDATA%\JarvisAssistant\config.json`, criado na p
 
 ### Comandos de voz
 
-Ações disponíveis: abrir programa, site e pesquisa; mídia (tocar/pausar, próxima, anterior); volume (definir, subir, descer, mudo); brilho; bloquear tela; desligar/reiniciar/cancelar; listar e fechar janelas; informações do sistema (bateria, CPU, memória, disco, rede); temporizadores e lembretes falados; área de transferência; abrir pasta e buscar arquivo (só em `AllowedFolders`); Spotify (tocar por busca, o que está tocando, volume do app, aleatório, repetir) e busca no YouTube; captura de tela (salva em `Imagens\Capturas`); rotinas e, se liberado, PowerShell.
+Ações disponíveis: abrir programa, site e pesquisa; mídia (tocar/pausar, próxima, anterior); volume (definir, subir, descer, mudo); brilho; bloquear tela; desligar/reiniciar/cancelar; listar e fechar janelas; informações do sistema (bateria, CPU, memória, disco, rede); temporizadores, alarmes (com som, repetição por dia e soneca) e lembretes falados, salvos em `%LOCALAPPDATA%JarvisAssistanteminders.json`; área de transferência; abrir pasta e buscar arquivo (só em `AllowedFolders`); Spotify (tocar por busca, o que está tocando, volume do app, aleatório, repetir) e busca no YouTube; captura de tela (salva em `Imagens\Capturas`); rotinas e, se liberado, PowerShell.
 
-Em `ActionPolicies`, `"bloquear"` tira a ação das ferramentas do modelo e `"confirmar"` pergunta antes (Enter confirma, Esc cancela; sem resposta em 30 s conta como "não"). Desligar/reiniciar, fechar programa e PowerShell livre **sempre** confirmam. Por segurança, arquivos executáveis e scripts nunca são abertos por voz. Temporizadores não sobrevivem ao fechamento do app.
+Em `ActionPolicies`, `"bloquear"` tira a ação das ferramentas do modelo e `"confirmar"` pergunta antes (Enter confirma, Esc cancela; sem resposta em 30 s conta como "não"). Desligar/reiniciar, fechar programa e PowerShell livre **sempre** confirmam. Por segurança, arquivos executáveis e scripts nunca são abertos por voz. Temporizadores, alarmes e lembretes sobrevivem ao fechamento do app; o que passar com ele fechado (até 12 h) é avisado na próxima abertura.
 
 ### Voz clonada
 

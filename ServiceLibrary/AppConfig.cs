@@ -163,6 +163,8 @@ public sealed class AppConfig
         ["listar_janelas"] = "auto",
         ["info_sistema"] = "auto",
         ["temporizador"] = "auto",
+        ["alarme"] = "auto",
+        ["lembrete"] = "auto",
         ["area_transferencia"] = "auto",
         ["abrir_pasta"] = "auto",
         ["buscar_arquivo"] = "auto",

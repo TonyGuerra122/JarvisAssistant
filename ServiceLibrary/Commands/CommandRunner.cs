@@ -14,7 +14,7 @@ namespace ServiceLibrary.Commands;
 /// </summary>
 /// <param name="config">Configuração do app.</param>
 /// <param name="confirm">Pergunta ao usuário (texto, cancelamento) e devolve se ele autorizou.</param>
-/// <param name="notify">Fala um aviso por iniciativa própria (usado pelos temporizadores).</param>
+/// <param name="notify">Fala um aviso por iniciativa própria (usado por temporizadores, alarmes e lembretes).</param>
 public sealed partial class CommandRunner(AppConfig config, Func<string, CancellationToken, Task<bool>> confirm, Func<string, Task> notify) : IDisposable
 {
     private readonly AppConfig _config = config;
@@ -80,11 +80,7 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         Add(Tool("info_sistema", "Informa bateria, uso de processador, memória, disco e rede do computador.",
             Props(("item", Choice("O que consultar", ["tudo", "bateria", "cpu", "memoria", "disco", "rede"]))),
             required: []), "info_sistema");
-        Add(Tool("temporizador", "Cria, lista ou cancela temporizadores e lembretes falados.",
-            Props(("acao", Choice("Ação", ["criar", "listar", "cancelar"])),
-                  ("minutos", Int("Para 'criar': daqui a quantos minutos")),
-                  ("mensagem", Str("Para 'criar': o que lembrar (opcional)"))),
-            required: ["acao"]), "temporizador");
+        AddReminderTools(Add);
         Add(Tool("area_transferencia", "Lê ou escreve na área de transferência (copiar/colar).",
             Props(("acao", Choice("Ação", ["ler", "escrever"])),
                   ("texto", Str("Para 'escrever': o texto a copiar"))),
@@ -131,6 +127,8 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         "fechar_programa" => $"fechando {S(args, "nome")}",
         "info_sistema" => "consultando o sistema",
         "temporizador" => $"temporizador: {S(args, "acao")}",
+        "alarme" => $"alarme: {S(args, "acao")} {S(args, "hora")}".TrimEnd(),
+        "lembrete" => $"lembrete: {S(args, "acao")}",
         "area_transferencia" => $"área de transferência: {S(args, "acao")}",
         "abrir_pasta" => $"abrindo {S(args, "caminho")}",
         "buscar_arquivo" => $"procurando \"{S(args, "nome")}\"",
@@ -192,7 +190,9 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
             "listar_janelas" => ListWindows(),
             "fechar_programa" => await CloseProgramAsync(S(args, "nome"), ct),
             "info_sistema" => await SystemInfoAsync(S(args, "item"), ct),
-            "temporizador" => Timer(S(args, "acao"), I(args, "minutos"), S(args, "mensagem")),
+            "temporizador" => TimerTool(args),
+            "alarme" => AlarmTool(args),
+            "lembrete" => ReminderTool(args),
             "area_transferencia" => await ClipboardAsync(S(args, "acao"), S(args, "texto"), ct),
             "abrir_pasta" => OpenPath(S(args, "caminho")),
             "buscar_arquivo" => await FindFilesAsync(S(args, "nome"), S(args, "pasta"), ct),
@@ -344,75 +344,6 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
         if (!await _confirm($"Executar no PowerShell:\n{command}", ct))
             return "O usuário não autorizou.";
         return await RunPowerShellAsync(command, ct);
-    }
-
-    // ------------------------------------------------------------------ temporizadores
-
-    private readonly Lock _timersGate = new();
-    private readonly List<ReminderTimer> _timers = [];
-    private int _timerSeq;
-
-    private sealed record ReminderTimer(int Id, DateTime At, string Message, CancellationTokenSource Cts);
-
-    private string Timer(string acao, int? minutos, string mensagem)
-    {
-        switch (acao)
-        {
-            case "criar":
-            {
-                if (minutos is null or <= 0) return "Diga em quantos minutos.";
-                var mins = Math.Min(minutos.Value, 24 * 60);
-                var text = string.IsNullOrWhiteSpace(mensagem)
-                    ? $"{_config.UserTitle}, o temporizador de {mins} minuto(s) terminou."
-                    : $"{_config.UserTitle}, lembrete: {mensagem.Trim()}.";
-                var cts = new CancellationTokenSource();
-                ReminderTimer timer;
-                lock (_timersGate)
-                {
-                    timer = new ReminderTimer(++_timerSeq, DateTime.Now.AddMinutes(mins), text, cts);
-                    _timers.Add(timer);
-                }
-                _ = RunTimerAsync(timer, TimeSpan.FromMinutes(mins));
-                return $"Temporizador criado para {timer.At:HH:mm} (daqui a {mins} minuto(s)).";
-            }
-            case "listar":
-                lock (_timersGate)
-                {
-                    if (_timers.Count == 0) return "Não há temporizadores ativos.";
-                    return string.Join("; ", _timers.Select(t => $"às {t.At:HH:mm}: {Cut(t.Message, 60)}"));
-                }
-            case "cancelar":
-                lock (_timersGate)
-                {
-                    var n = _timers.Count;
-                    foreach (var t in _timers) t.Cts.Cancel();
-                    _timers.Clear();
-                    return n == 0 ? "Não havia temporizadores." : $"{n} temporizador(es) cancelado(s).";
-                }
-            default:
-                return "Ação de temporizador desconhecida.";
-        }
-    }
-
-    private async Task RunTimerAsync(ReminderTimer timer, TimeSpan delay)
-    {
-        try
-        {
-            await Task.Delay(delay, timer.Cts.Token);
-            lock (_timersGate) _timers.Remove(timer);
-            await _notify(timer.Message);
-        }
-        catch (OperationCanceledException) { /* cancelado */ }
-        catch (Exception ex) { Log.Error("Falha ao avisar o temporizador", ex); }
-    }
-
-    public void Dispose()
-    {
-        lock (_timersGate)
-        {
-            foreach (var t in _timers) t.Cts.Cancel();
-            _timers.Clear();
-        }
     }
 
     // ------------------------------------------------------------------ utilitários
