@@ -86,6 +86,19 @@ As configurações ficam em `%APPDATA%\JarvisAssistant\config.json`, criado na p
 | `GreetOnStart` | `true` | Cumprimenta ao terminar de iniciar |
 | `Personality` | *(mordomo britânico)* | Prompt de sistema; `{title}` vira o `UserTitle` |
 | `Debug` | `false` | Liga o DevTools (`F12`) no HUD |
+| `CommandsEnabled` | `true` | Liga as ações no PC (abrir programas, volume, temporizadores...) |
+| `Programs` | *(vários)* | Programas que ele abre: nome falado → executável/URI. `"browser:"` = navegador padrão. Os que não estiverem aqui são procurados no Menu Iniciar (com confirmação) |
+| `Routines` | *(2 exemplos)* | Rotinas suas: nome → comando do PowerShell |
+| `ConfirmRoutines` | `true` | Confirma antes de rodar uma rotina |
+| `AllowPowerShell` | `false` | Deixa o modelo escrever PowerShell livre (sempre com confirmação) |
+| `ActionPolicies` | *(veja abaixo)* | Política por ação: `auto`, `confirmar` ou `bloquear` |
+| `AllowedFolders` | *(pastas do usuário)* | Pastas onde ele pode procurar e abrir arquivos |
+
+### Comandos de voz
+
+Ações disponíveis: abrir programa, site e pesquisa; mídia (tocar/pausar, próxima, anterior); volume (definir, subir, descer, mudo); brilho; bloquear tela; desligar/reiniciar/cancelar; listar e fechar janelas; informações do sistema (bateria, CPU, memória, disco, rede); temporizadores e lembretes falados; área de transferência; abrir pasta e buscar arquivo (só em `AllowedFolders`); buscar música no Spotify/YouTube; captura de tela (salva em `Imagens\Capturas`); rotinas e, se liberado, PowerShell.
+
+Em `ActionPolicies`, `"bloquear"` tira a ação das ferramentas do modelo e `"confirmar"` pergunta antes (Enter confirma, Esc cancela; sem resposta em 30 s conta como "não"). Desligar/reiniciar, fechar programa e PowerShell livre **sempre** confirmam. Por segurança, arquivos executáveis e scripts nunca são abertos por voz. Temporizadores não sobrevivem ao fechamento do app.
 
 ### Voz clonada
 

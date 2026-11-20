@@ -105,7 +105,7 @@ public sealed class AppConfig
     /// <summary>Programas que ele pode abrir: nome falado → executável, caminho ou URI.</summary>
     public Dictionary<string, string> Programs { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["navegador"] = "msedge",
+        ["navegador"] = "browser:",
         ["bloco de notas"] = "notepad",
         ["calculadora"] = "calc",
         ["explorador de arquivos"] = "explorer",
@@ -128,6 +128,47 @@ public sealed class AppConfig
     /// Desligado por padrão: o modelo pode errar ou ser enganado por textos que ele lê.
     /// </summary>
     public bool AllowPowerShell { get; set; } = false;
+
+    /// <summary>
+    /// Política de cada ação: "auto" (executa direto), "confirmar" (pergunta antes) ou "bloquear" (some das ferramentas).
+    /// Energia, fechar programa e PowerShell livre sempre confirmam, mesmo em "auto".
+    /// Ações que não estiverem aqui usam o padrão.
+    /// </summary>
+    public Dictionary<string, string> ActionPolicies { get; set; } = DefaultActionPolicies();
+
+    /// <summary>Pastas onde ele pode procurar e abrir arquivos (aceita variáveis como %USERPROFILE%).</summary>
+    public List<string> AllowedFolders { get; set; } =
+    [
+        "%USERPROFILE%\\Desktop",
+        "%USERPROFILE%\\Documents",
+        "%USERPROFILE%\\Downloads",
+        "%USERPROFILE%\\Pictures",
+        "%USERPROFILE%\\Music",
+        "%USERPROFILE%\\Videos",
+    ];
+
+    public static Dictionary<string, string> DefaultActionPolicies() => new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["abrir_programa"] = "auto",
+        ["abrir_site"] = "auto",
+        ["pesquisar_web"] = "auto",
+        ["controlar_midia"] = "auto",
+        ["volume"] = "auto",
+        ["brilho"] = "auto",
+        ["bloquear_tela"] = "auto",
+        ["energia"] = "confirmar",
+        ["executar_rotina"] = "auto",
+        ["executar_powershell"] = "confirmar",
+        ["fechar_programa"] = "confirmar",
+        ["listar_janelas"] = "auto",
+        ["info_sistema"] = "auto",
+        ["temporizador"] = "auto",
+        ["area_transferencia"] = "auto",
+        ["abrir_pasta"] = "auto",
+        ["buscar_arquivo"] = "auto",
+        ["tocar_musica"] = "auto",
+        ["captura_tela"] = "auto",
+    };
 
     private static readonly JsonSerializerOptions Opts = new()
     {
@@ -158,6 +199,8 @@ public sealed class AppConfig
         // O JSON não guarda o "ignorar maiúsculas" dos dicionários; recoloca aqui.
         config?.Programs = new Dictionary<string, string>(config.Programs ?? [], StringComparer.OrdinalIgnoreCase);
         config?.Routines = new Dictionary<string, string>(config.Routines ?? [], StringComparer.OrdinalIgnoreCase);
+        config?.ActionPolicies = new Dictionary<string, string>(config.ActionPolicies ?? [], StringComparer.OrdinalIgnoreCase);
+        config?.AllowedFolders ??= [];
 
         // Regrava para acrescentar opções novas sem perder as do usuário.
         try { File.WriteAllText(file, JsonSerializer.Serialize(config, Opts)); }
