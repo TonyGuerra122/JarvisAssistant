@@ -286,7 +286,7 @@ public sealed partial class Assistant : IDisposable
 
         await RunTurnAsync(async ct =>
         {
-            var text = await _client.TranscribeAsync(wav, _config.Language, ct);
+            var text = await TranscribeWithRecoveryAsync(wav, ct);
             if (string.IsNullOrWhiteSpace(text))
             {
                 Caption("system", "Não entendi. Pode repetir?");
@@ -480,6 +480,77 @@ public sealed partial class Assistant : IDisposable
         }
         catch (JsonException) { /* argumentos inválidos: segue vazio */ }
         return new JsonObject();
+    }
+
+    // ---------------------------------------------------- recuperação do Whisper
+
+    private bool _speechRecovered;
+
+    /// <summary>Transcreve; se o Whisper falhar por falta do CUDA, passa para a CPU, reinicia o núcleo e tenta de novo.</summary>
+    private async Task<string> TranscribeWithRecoveryAsync(byte[] wav, CancellationToken ct)
+    {
+        try
+        {
+            return await _client.TranscribeAsync(wav, _config.Language, ct);
+        }
+        catch (Exception ex) when (!_speechRecovered && IsCudaError(ex.Message))
+        {
+            _speechRecovered = true; // só uma tentativa por sessão
+            Log.Error("Whisper falhou por causa do CUDA; trocando para a CPU", ex);
+            if (!await SwitchSpeechToCpuAsync(ct)) throw;
+            return await _client.TranscribeAsync(wav, _config.Language, ct);
+        }
+    }
+
+    private static bool IsCudaError(string message) =>
+        new[] { "cublas", "cudnn", "cudart", "cuda" }.Any(k => message.Contains(k, StringComparison.OrdinalIgnoreCase));
+
+    private async Task<bool> SwitchSpeechToCpuAsync(CancellationToken ct)
+    {
+        Caption("system", "O Whisper não conseguiu usar a GPU. Mudando para a CPU e reiniciando o núcleo — alguns instantes…");
+        SetState("thinking");
+
+        Setup.Steps.SpeechStep.UseCpu();
+
+        // O servidor só lê o config.toml ao iniciar. Se for o nosso, reinicia; se sobrou de uma sessão
+        // anterior, encerra pelo PID que o próprio OpenJarvis registra (server.pid).
+        if (_server.StartedByUs) _server.Stop();
+        else StopLeftoverServer();
+
+        _online = false;
+        _server.Start();
+
+        var deadline = DateTime.UtcNow.AddMinutes(4);
+        while (DateTime.UtcNow < deadline && !_server.Exited)
+        {
+            await Task.Delay(2000, ct);
+            if (await _client.IsHealthyAsync(ct)) { _online = true; break; }
+        }
+
+        SendStatus();
+        if (!_online) Caption("system", "O núcleo não voltou a responder. Reinicie o J.A.R.V.I.S.");
+        return _online;
+    }
+
+    /// <summary>Encerra um "jarvis serve" que ficou de outra sessão (PID em ~/.openjarvis/server.pid).</summary>
+    private static void StopLeftoverServer()
+    {
+        try
+        {
+            var pidFile = Path.Combine(Path.GetDirectoryName(OpenJarvisConfigFile.Path)!, "server.pid");
+            if (!File.Exists(pidFile) || !int.TryParse(File.ReadAllText(pidFile).Trim(), out var pid)) return;
+
+            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            // Só mata se for mesmo o Python/jarvis (o PID pode ter sido reaproveitado por outro programa).
+            if (process.ProcessName.StartsWith("python", StringComparison.OrdinalIgnoreCase)
+                || process.ProcessName.StartsWith("jarvis", StringComparison.OrdinalIgnoreCase))
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(5000);
+                Log.Info($"Servidor antigo do OpenJarvis encerrado (PID {pid}).");
+            }
+        }
+        catch (Exception ex) { Log.Error("Não consegui encerrar o servidor antigo do OpenJarvis", ex); }
     }
 
     // ------------------------------------------------------------------ confirmação
