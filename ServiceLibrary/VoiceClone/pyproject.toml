@@ -1,0 +1,33 @@
+[project]
+name = "jarvis-voice-clone"
+version = "1.0.0"
+description = "Servico local de voz clonada (XTTS-v2) do J.A.R.V.I.S"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "coqui-tts>=0.24,<0.27",
+    "torch==2.5.1",
+    "torchaudio==2.5.1",
+    "transformers>=4.43,<4.50",
+    "soundfile>=0.12.1",
+    "numpy>=1.26,<2.1",
+    "fastapi>=0.110",
+    "uvicorn>=0.30",
+    # Limpeza do audio de referencia: separa a voz do fundo (Demucs) e tira chiado (noisereduce)
+    "demucs==4.0.1",
+    "noisereduce>=3.0",
+]
+
+# PyTorch com CUDA 12.4 (roda na GPU NVIDIA; sem GPU cai para a CPU)
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }
+torchaudio = { index = "pytorch-cu124" }
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv]
+package = false
+# O demucs 4.0.1 limita o torchaudio a versoes antigas, mas funciona com a 2.5.1.
+override-dependencies = ["torchaudio==2.5.1"]

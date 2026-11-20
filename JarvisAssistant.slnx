@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="GUI/GUI.csproj" />
+  <Project Path="ServiceLibrary/ServiceLibrary.csproj" Id="71efb877-fcbc-4090-a340-1f33e89ba6a0" />
+</Solution>

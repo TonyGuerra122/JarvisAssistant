@@ -1,0 +1,26 @@
+# Build
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+publish/
+*.user
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.suo
+
+# Python (serviço de voz clonada)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Arquivos gerados pela voz clonada
+ServiceLibrary/VoiceClone/reference.wav
+
+# Sistema
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>J.A.R.V.I.S</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="booting">
+    <div id="bg" aria-hidden="true"></div>
+    <canvas id="orb" aria-hidden="true"></canvas>
+    <div id="scan" aria-hidden="true"></div>
+
+    <main id="hud">
+        <header class="top reveal">
+            <div class="brand">
+                <div class="logo">J.A.R.V.I.S</div>
+                <div class="sub">SISTEMA PESSOAL · OPENJARVIS</div>
+            </div>
+            <div class="clock">
+                <div id="time">--:--</div>
+                <div id="date">—</div>
+            </div>
+        </header>
+
+        <aside class="panel left reveal" id="weather">
+            <div class="panel-title"><span id="wCity">CLIMA</span><span class="tag">AGORA</span></div>
+            <div class="w-main">
+                <div id="wTemp">—</div>
+                <div class="w-side">
+                    <div id="wDesc">Carregando…</div>
+                    <div id="wMinMax" class="dim">MÍN --° · MÁX --°</div>
+                </div>
+            </div>
+            <div class="w-grid">
+                <div><span class="dim">UMIDADE</span><b id="wHum">--%</b></div>
+                <div><span class="dim">VENTO</span><b id="wWind">-- km/h</b></div>
+                <div><span class="dim">SENSAÇÃO</span><b id="wFeel">--°</b></div>
+            </div>
+        </aside>
+
+        <aside class="panel right reveal" id="status">
+            <div class="panel-title"><span>DIAGNÓSTICO</span><span class="tag" id="coreTag">—</span></div>
+            <div class="rows">
+                <div class="row"><span class="dim">NÚCLEO</span><b id="sCore">—</b></div>
+                <div class="row"><span class="dim">MODELO</span><b id="sModel">—</b></div>
+                <div class="row"><span class="dim">AUDIÇÃO</span><b id="sListen">—</b></div>
+                <div class="row"><span class="dim">VOZ</span><b id="sVoice">—</b></div>
+            </div>
+            <div class="panel-title small"><span>ATIVIDADE</span></div>
+            <ul id="activity"></ul>
+        </aside>
+
+        <section class="center">
+            <div id="statePill" class="reveal"><i></i><span>INICIANDO</span></div>
+            <div id="caption" class="reveal">
+                <span class="who"></span>
+                <span class="text"></span>
+            </div>
+        </section>
+
+        <footer class="hints reveal">
+            SEGURE <kbd>ESPAÇO</kbd> PARA FALAR · <kbd>ENTER</kbd> DIGITAR · <kbd>ESC</kbd> MINIMIZAR · <kbd>CTRL</kbd>+<kbd>Q</kbd> SAIR
+        </footer>
+    </main>
+
+    <div id="typeBox" hidden>
+        <input id="typeInput" autocomplete="off" spellcheck="false" placeholder="Digite para o J.A.R.V.I.S e pressione Enter…">
+    </div>
+
+    <div id="boot">
+        <div id="bootLines"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

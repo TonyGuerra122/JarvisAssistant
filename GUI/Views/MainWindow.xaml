@@ -1,0 +1,24 @@
+﻿<Window x:Class="GUI.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:GUI.Views"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowState="Maximized"
+        Background="#020611">
+    <Grid>
+        <wv2:WebView2 x:Name="Web" />
+        <TextBlock x:Name="Fallback" 
+                   Visibility="Collapsed"
+                   Foreground="#7FE7FF"
+                   FontFamily="Consolas"
+                   FontSize="16"
+                   TextWrapping="Wrap"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Margin="40" />
+    </Grid>
+</Window>

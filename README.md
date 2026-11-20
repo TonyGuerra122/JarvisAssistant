@@ -1,0 +1,147 @@
+# J.A.R.V.I.S — Assistente de voz para Windows
+
+Assistente pessoal por voz, em português do Brasil, que roda **100% local** no seu PC. Ele tem um HUD inspirado no J.A.R.V.I.S. e usa o [OpenJarvis](https://github.com/open-jarvis/OpenJarvis) como núcleo: um modelo de linguagem no Ollama para pensar, Whisper para ouvir e Kokoro para falar.
+
+Na primeira execução, o app instala sozinho tudo de que precisa.
+
+## Funcionalidades
+
+- **Push-to-talk**: segure `Espaço`, fale e solte. O Jarvis transcreve, responde e lê a resposta em voz alta.
+- **Modo texto**: aperte `Enter` para digitar em vez de falar.
+- **Interrupção**: falar por cima corta a resposta atual.
+- **Memória curta**: lembra as últimas trocas da conversa (configurável).
+- **Contexto**: o modelo recebe a data, a hora, a sua cidade e o clima atual ([Open-Meteo](https://open-meteo.com)).
+- **Três opções de voz**, com fallback automático:
+  1. `openjarvis`: Kokoro (padrão, voz masculina pt-BR `pm_alex`)
+  2. `clone`: voz clonada a partir de um áudio seu, com XTTS-v2
+  3. `windows`: vozes nativas do Windows (SAPI)
+- **Efeito de voz**: ajuste de tom, velocidade e um efeito leve de "voz de IA" (graves + eco curto).
+- **Instalador automático**: Git, uv, Python, Build Tools C++, OpenJarvis, Ollama, modelo, eSpeak e a voz clonada, com o progresso de cada passo exibido na tela de boot.
+
+## Requisitos
+
+- Windows 10 1809 (build 17763) ou mais novo, com `winget`
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) (para compilar)
+- [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (já vem no Windows 11)
+- Microfone
+- Opcional: GPU NVIDIA (acelera o Whisper e a voz clonada)
+
+> A primeira instalação baixa vários GB (Build Tools, dependências Python, modelo do Ollama e, se você usar a voz clonada, o XTTS-v2 com ~1,8 GB). Ela pode levar bastante tempo.
+
+## Como compilar e rodar
+
+```powershell
+git clone <url-do-repositorio>
+cd JarvisAssistent
+dotnet build JarvisAssistant.slnx
+dotnet run --project GUI
+```
+
+Você também pode abrir `JarvisAssistant.slnx` no Visual Studio e rodar o projeto **GUI**.
+
+Para gerar um executável:
+
+```powershell
+dotnet publish GUI -c Release
+```
+
+## Atalhos
+
+| Tecla              | Ação                       |
+| ------------------ | -------------------------- |
+| `Espaço` (segurar) | Falar com o Jarvis         |
+| `Enter`            | Digitar uma mensagem       |
+| `Esc`              | Minimizar (ou fechar o campo de texto) |
+| `Ctrl` + `Q`       | Sair                       |
+
+## Configuração
+
+As configurações ficam em `%APPDATA%\JarvisAssistant\config.json`, criado na primeira execução. Edite o arquivo e reabra o app. Opções novas são acrescentadas sem apagar as suas.
+
+| Opção | Padrão | Descrição |
+| --- | --- | --- |
+| `UserTitle` | `"senhor"` | Como o Jarvis chama você |
+| `City` | `"São Paulo"` | Cidade usada para o clima |
+| `Language` | `"pt"` | Idioma da transcrição |
+| `OpenJarvisUrl` | `http://127.0.0.1:8000` | Endereço do servidor OpenJarvis |
+| `StartOpenJarvis` | `true` | Inicia `jarvis serve` se o servidor não estiver rodando |
+| `StopOpenJarvisOnExit` | `true` | Encerra o servidor ao fechar, se foi o app que o iniciou |
+| `AutoInstallOpenJarvis` | `true` | Instala o OpenJarvis e as dependências se faltarem |
+| `OpenJarvisInstallBuildTools` | `true` | Permite instalar o VS Build Tools (pede UAC) |
+| `OpenJarvisStarterModel` | `"qwen3.5:2b"` | Modelo baixado no Ollama se nenhum estiver definido |
+| `OpenJarvisExtras` | `["desktop","voice"]` | Extras do OpenJarvis a instalar |
+| `JarvisCommand` | `""` | Caminho do `jarvis.cmd` (vazio = `%LOCALAPPDATA%\OpenJarvis\bin\jarvis.cmd`) |
+| `Agent` | `"simple"` | Agente do OpenJarvis usado no chat |
+| `Model` | `""` | Modelo (vazio = o padrão do OpenJarvis) |
+| `MaxTokens` | `350` | Tamanho máximo da resposta |
+| `HistoryTurns` | `6` | Quantas trocas anteriores ele lembra |
+| `Voice` | `"openjarvis"` | `openjarvis`, `clone` ou `windows` |
+| `OpenJarvisVoiceId` | `"pm_alex"` | Voz do Kokoro |
+| `CloneVoiceFile` | `""` | Áudio (mp3/wav) com a voz a clonar |
+| `CloneVoicePort` | `8020` | Porta local do serviço de voz clonada |
+| `VoiceSpeed` | `0.9` | Velocidade da fala |
+| `VoicePitch` | `-0.8` | Tom em semitons (negativo = mais grave) |
+| `VoiceEffect` | `1` | Efeito de voz de IA: `0` desligado, `1` sutil, `2` forte |
+| `WindowsVoiceName` | `""` | Voz do Windows (vazio = primeira voz pt-BR) |
+| `GreetOnStart` | `true` | Cumprimenta ao terminar de iniciar |
+| `Personality` | *(mordomo britânico)* | Prompt de sistema; `{title}` vira o `UserTitle` |
+| `Debug` | `false` | Liga o DevTools (`F12`) no HUD |
+
+### Voz clonada
+
+1. Defina `"Voice": "clone"` e `"CloneVoiceFile": "C:\\caminho\\para\\voz.mp3"`.
+2. Reabra o app. Ele instala o serviço Python (XTTS-v2 via `coqui-tts`), limpa o áudio de referência (Demucs + redução de ruído) e baixa o modelo.
+
+O serviço fica em `ServiceLibrary/VoiceClone/voice_server.py` e também pode ser usado sozinho:
+
+```text
+python voice_server.py prepare <audio.mp3|wav>   # gera reference.wav limpo
+python voice_server.py download                  # baixa o modelo XTTS-v2
+python voice_server.py serve --port 8020         # GET /health, POST /synthesize
+```
+
+> ⚠️ Use apenas a voz de quem autorizou. O modelo XTTS-v2 segue a [Coqui Public Model License](https://coqui.ai/cpml), que **permite somente uso não comercial**.
+
+## Estrutura do projeto
+
+```text
+JarvisAssistant.slnx
+├── GUI/                      App WPF (executável JarvisAssistant.exe)
+│   ├── Views/MainWindow      Janela que hospeda o HUD no WebView2
+│   └── web/                  HUD em HTML/CSS/JS (boot, legendas, clima, visualizador de áudio)
+└── ServiceLibrary/           Lógica do assistente
+    ├── Assistant.cs          Boot e ciclo ouvir → pensar → falar
+    ├── AppConfig.cs          Leitura e gravação do config.json
+    ├── OpenJarvisClient.cs   Cliente HTTP (chat, transcrição, síntese de voz)
+    ├── OpenJarvisServer.cs   Inicia e encerra o "jarvis serve"
+    ├── Audio/                Microfone, player, voz do Windows e efeito de voz (NAudio)
+    ├── Setup/                Instalador automático, um passo por classe em Steps/
+    └── VoiceClone/           Serviço Python de voz clonada (XTTS-v2)
+```
+
+### Como funciona
+
+1. **Boot**: o app procura o OpenJarvis em `OpenJarvisUrl`. Se não o encontrar, instala e/ou inicia o servidor e depois verifica o modelo, a audição (STT), a voz (TTS) e o microfone.
+2. **Ouvir**: o áudio gravado do microfone vai para `POST /v1/speech/transcribe`.
+3. **Pensar**: o texto, o histórico e o prompt de personalidade vão para `POST /v1/chat/completions`. Blocos `<think>` e markdown são removidos da resposta.
+4. **Falar**: a resposta é dividida em frases. Cada frase é sintetizada enquanto a anterior toca, para reduzir a latência.
+
+## Arquivos e logs
+
+| Local | Conteúdo |
+| --- | --- |
+| `%APPDATA%\JarvisAssistant\config.json` | Configurações |
+| `%LOCALAPPDATA%\JarvisAssistant\jarvis.log` | Log do app |
+| `%LOCALAPPDATA%\JarvisAssistant\openjarvis-serve.log` | Log do servidor OpenJarvis |
+| `%LOCALAPPDATA%\OpenJarvis\` | Instalação do OpenJarvis |
+
+## Solução de problemas
+
+- **"Núcleo OpenJarvis offline"**: veja `openjarvis-serve.log`. Teste rodando `jarvis serve` manualmente.
+- **"Módulo de audição indisponível"**: confirme que `OpenJarvisExtras` contém `"desktop"` e `"voice"` e reabra o app.
+- **Sem voz**: o app tenta, em ordem, a voz clonada, o Kokoro e a voz do Windows. Se nenhuma funcionar, ele só mostra legendas.
+- **Respostas lentas**: use um modelo menor em `Model` ou mantenha `Agent` como `"simple"`.
+
+## Tecnologias
+
+.NET 10 · WPF · WebView2 · NAudio · System.Speech · OpenJarvis · Ollama · Whisper · Kokoro · Coqui XTTS-v2
