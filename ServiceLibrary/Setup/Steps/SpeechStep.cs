@@ -19,18 +19,24 @@ public sealed class SpeechStep : InstallStep
     public override Task<bool> IsSatisfiedAsync(InstallerContext ctx, CancellationToken ct)
     {
         var device = OpenJarvisConfigFile.Read("speech", "device");
-        return Task.FromResult(device is not null && !device.Equals("auto", StringComparison.OrdinalIgnoreCase));
+        var model = OpenJarvisConfigFile.Read("speech", "model");
+        return Task.FromResult(device is not null && !device.Equals("auto", StringComparison.OrdinalIgnoreCase) && model is not null);
     }
 
     public override Task InstallAsync(InstallerContext ctx, CancellationToken ct)
     {
         Report(ctx, "usando a CPU (mais estável que a GPU no Windows)");
-        UseCpu();
+        if (OpenJarvisConfigFile.Read("speech", "device") is null or "auto") UseCpu();
+        // O padrão do OpenJarvis ("base") erra muito em português; "small" é bem melhor e ainda leve na CPU.
+        if (OpenJarvisConfigFile.Read("speech", "model") is null) OpenJarvisConfigFile.Write("speech", "model", DefaultModel);
         return Task.CompletedTask;
     }
 
+    /// <summary>Modelo Whisper padrão: precisão bem melhor que o "base" em pt-BR.</summary>
+    public const string DefaultModel = "small";
+
     public override string? DoneDetail(InstallerContext ctx) =>
-        $"device {OpenJarvisConfigFile.Read("speech", "device") ?? "cpu"}";
+        $"{OpenJarvisConfigFile.Read("speech", "model") ?? DefaultModel}, device {OpenJarvisConfigFile.Read("speech", "device") ?? "cpu"}";
 
     /// <summary>Grava device="cpu" e compute_type="int8" no config.toml do OpenJarvis.</summary>
     public static void UseCpu()

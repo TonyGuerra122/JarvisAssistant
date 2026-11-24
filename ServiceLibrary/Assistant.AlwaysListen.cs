@@ -108,7 +108,12 @@ public sealed partial class Assistant
             if (_state == "confirm") return; // esperando Enter/Esc ou "sim"/"não"; o resto é ignorado
 
             var command = ExtractCommand(text);
-            if (command is null) return; // não era comigo: descarta sem registrar
+            if (command is null)
+            {
+                // Só a contagem de palavras, nunca o texto: mostra se a fala chegou mas não casou com a palavra de ativação.
+                Log.Info($"Fala descartada (sem palavra de ativação; {text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length} palavras).");
+                return;
+            }
 
             if (command.Length == 0)
             {
@@ -140,8 +145,13 @@ public sealed partial class Assistant
 
         // "Jarvis, abre o Spotify" / "Ei, Jarvis, abre o Spotify" (a palavra entre as 3 primeiras).
         for (int i = 0; i < Math.Min(3, tokens.Length); i++)
+        {
             if (IsWakeWord(tokens[i], wake))
                 return string.Join(' ', tokens.Skip(i + 1)).Trim(EdgePunctuation);
+            // Palavra quebrada em duas ("Já vis", "Jar vis").
+            if (i + 1 < tokens.Length && IsWakeWord(tokens[i] + tokens[i + 1], wake))
+                return string.Join(' ', tokens.Skip(i + 2)).Trim(EdgePunctuation);
+        }
 
         // "Abre o Spotify, Jarvis"
         if (tokens.Length > 1 && IsWakeWord(tokens[^1], wake))
@@ -157,7 +167,9 @@ public sealed partial class Assistant
         var word = LettersOnly(token);
         if (word.Length == 0 || wake.Length == 0) return false;
         if (word == wake) return true;
-        return word.Length >= 5 && wake.Length >= 5 && Levenshtein(word, wake) <= 1;
+        if (word.Length < 4 || wake.Length < 5) return false;
+        // Whisper erra o nome ("Garvis", "Jarves", "Zarvis"): tolera 1 letra, ou 2 em palavras longas.
+        return Levenshtein(word, wake) <= (wake.Length >= 6 ? 2 : 1);
     }
 
     /// <summary>Minúsculas, sem acentos e só letras e números.</summary>
