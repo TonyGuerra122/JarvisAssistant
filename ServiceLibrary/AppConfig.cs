@@ -138,6 +138,12 @@ public sealed class AppConfig
     /// </summary>
     public List<string> EnabledPlugins { get; set; } = [];
 
+    /// <summary>
+    /// Repositório do marketplace de plugins no GitHub ("dono/nome" ou URL). Os plugins de EnabledPlugins
+    /// são baixados dos Releases dele ao iniciar. Vazio = só plugins colocados na pasta à mão.
+    /// </summary>
+    public string MarketplaceRepo { get; set; } = "";
+
     /// <summary>Programas que ele pode abrir: nome falado → executável, caminho ou URI.</summary>
     public Dictionary<string, string> Programs { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {

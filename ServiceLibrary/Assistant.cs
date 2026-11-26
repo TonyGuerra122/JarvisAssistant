@@ -50,10 +50,8 @@ public sealed partial class Assistant : IDisposable
         _post = post;
         _client = new(config.OpenJarvisUrl);
         _server = new(config);
-        var plugins = config.CommandsEnabled && config.EnabledPlugins.Count > 0
-            ? PluginLoader.LoadAll(new HashSet<string>(config.EnabledPlugins, StringComparer.OrdinalIgnoreCase))
-            : [];
-        _commands = new(config, ConfirmAsync, plugins, NotifyAsync, () => _quitRequested = true);
+        // Os plugins entram no boot (RunBootSequenceAsync), depois de sincronizar com o marketplace.
+        _commands = new(config, ConfirmAsync, [], NotifyAsync, () => _quitRequested = true);
         _player.PitchSemitones = config.VoicePitch;
         _player.EffectAmount = config.VoiceEffect;
         if (config.Voice.Equals("clone", StringComparison.OrdinalIgnoreCase)) _clone = new VoiceCloneServer(config.CloneVoicePort);
@@ -115,6 +113,16 @@ public sealed partial class Assistant : IDisposable
         await Task.Delay(350);
         Boot("cfg", "Carregando configurações", "ok");
         await Task.Delay(250);
+
+        // Plugins: atualiza do marketplace (se configurado) e carrega os liberados.
+        if (_config.CommandsEnabled && _config.EnabledPlugins.Count > 0)
+        {
+            Boot("plugins", "Carregando plugins", "wait");
+            await new MarketplaceService(_config).SyncAsync();
+            var plugins = PluginLoader.LoadAll(new HashSet<string>(_config.EnabledPlugins, StringComparer.OrdinalIgnoreCase));
+            _commands.AddPlugins(plugins);
+            Boot("plugins", $"Plugins carregados: {plugins.Count}", "ok");
+        }
 
         // 1. Núcleo (OpenJarvis)
         Boot("core", "Conectando ao núcleo OpenJarvis", "wait");

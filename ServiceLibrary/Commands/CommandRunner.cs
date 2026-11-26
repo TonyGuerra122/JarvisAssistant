@@ -43,6 +43,13 @@ public sealed partial class CommandRunner : IDisposable
     }
 
 
+    /// <summary>Registra plugins depois da construção (eles só ficam prontos após o marketplace sincronizar no boot).</summary>
+    public void AddPlugins(IEnumerable<IJarvisCommand> plugins)
+    {
+        foreach (var p in plugins)
+            if (!_plugins.TryAdd(p.Name, p)) Log.Error($"Comando duplicado ignorado: {p.Name}");
+    }
+
     // ------------------------------------------------------------------ política
 
     private string PolicyOf(string name)
