@@ -17,4 +17,8 @@
     <PackageReference Include="System.Speech" Version="11.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\PluginLibrary\PluginLibrary.csproj" />
+  </ItemGroup>
+
 </Project>

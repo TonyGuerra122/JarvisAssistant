@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="GUI/GUI.csproj" />
+  <Project Path="PluginLibrary/PluginLibrary.csproj" Id="85cdc845-4c23-43f3-86b9-0a73b414b19b" />
   <Project Path="ServiceLibrary/ServiceLibrary.csproj" Id="71efb877-fcbc-4090-a340-1f33e89ba6a0" />
 </Solution>

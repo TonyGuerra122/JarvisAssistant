@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using PluginLibrary.Sdk;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -15,15 +16,32 @@ namespace ServiceLibrary.Commands;
 /// <param name="config">Configuração do app.</param>
 /// <param name="confirm">Pergunta ao usuário (texto, cancelamento) e devolve se ele autorizou.</param>
 /// <param name="notify">Fala um aviso por iniciativa própria (usado por temporizadores, alarmes e lembretes).</param>
-public sealed partial class CommandRunner(AppConfig config, Func<string, CancellationToken, Task<bool>> confirm, Func<string, Task> notify, Action requestQuit) : IDisposable
+public sealed partial class CommandRunner : IDisposable
 {
-    private readonly AppConfig _config = config;
-    private readonly Func<string, CancellationToken, Task<bool>> _confirm = confirm;
-    private readonly Func<string, Task> _notify = notify;
-    private readonly Action _requestQuit = requestQuit;
+    private readonly AppConfig _config;
+    private readonly Func<string, CancellationToken, Task<bool>> _confirm;
+    private readonly Func<string, Task> _notify;
+    private readonly Action _requestQuit;
+    private readonly Dictionary<string, IJarvisCommand> _plugins;
 
     /// <summary>Ações que SEMPRE confirmam, mesmo se a política disser "auto".</summary>
     private static readonly HashSet<string> AlwaysConfirm = ["energia", "executar_powershell", "fechar_programa"];
+
+    // ------------------------------------------------------------------ construtor
+    public CommandRunner(AppConfig config, Func<string, CancellationToken, Task<bool>> confirm, IEnumerable<IJarvisCommand> plugins, Func<string, Task> notify, Action requestQuit)
+    {
+        _config = config;
+        _confirm = confirm;
+        _notify = notify;
+        _requestQuit = requestQuit;
+        _plugins = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var p in plugins)
+        {
+            if (!_plugins.TryAdd(p.Name, p)) Log.Error($"Comando duplicado ignorado: {p.Name}");
+        }
+    }
+
 
     // ------------------------------------------------------------------ política
 
@@ -34,6 +52,7 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
             p = p.Trim().ToLowerInvariant();
             if (p is "auto" or "confirmar" or "bloquear") return p;
         }
+        if (_plugins.TryGetValue(name, out var plugin)) return plugin.RequiresConfirmation ? "confirmar" : "auto";
         return AppConfig.DefaultActionPolicies().GetValueOrDefault(name, "auto");
     }
 
@@ -101,6 +120,9 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
             Props(("consulta", Str("O que procurar")))), "buscar_youtube");
         Add(Tool("captura_tela", "Tira uma captura da tela e salva em Imagens.", Props()), "captura_tela");
         Add(Tool("encerrar_jarvis", "Encerra o próprio J.A.R.V.I.S por completo (ele para de ouvir e o programa fecha). Use só quando o usuário pedir para encerrar, fechar ou desligar o Jarvis/assistente; NÃO serve para desligar o computador nem fechar outros programas.", Props()), "encerrar_jarvis");
+
+        foreach (var plugin in _plugins.Values)
+            Add(PluginTool(plugin), plugin.Name);
 
         if (_config.Routines.Count > 0)
             Add(Tool("executar_rotina", "Executa uma rotina criada pelo usuário.",
@@ -205,8 +227,39 @@ public sealed partial class CommandRunner(AppConfig config, Func<string, Cancell
             "encerrar_jarvis" => await QuitJarvisAsync(ct),
             "executar_rotina" => await RoutineAsync(S(args, "nome"), ct),
             "executar_powershell" when _config.AllowPowerShell => await PowerShellAsync(S(args, "comando"), ct),
+            _ when _plugins.TryGetValue(name, out var plugin) => await RunPluginAsync(plugin, args, ct),
             _ => $"A ferramenta \"{name}\" não existe.",
         };
+    }
+
+    // ------------------------------------------------------------------ plugins
+
+    private static JsonObject PluginTool(IJarvisCommand plugin)
+    {
+        var props = new JsonObject();
+        foreach (var prm in plugin.Parameters)
+        {
+            var schema = prm.Options is { Count: > 0 } ? Choice(prm.Description, prm.Options) : Str(prm.Description);
+            schema["type"] = prm.Type; // "string", "integer" ou "boolean"
+            props[prm.Name] = schema;
+        }
+        var required = plugin.Parameters.Where(x => x.Required).Select(x => x.Name).ToArray();
+        return Tool(plugin.Name, plugin.Description, props, required);
+    }
+
+    private async Task<string> RunPluginAsync(IJarvisCommand plugin, JsonObject args, CancellationToken ct)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in args)
+            if (value is not null) values[key] = value.ToString();
+
+        var context = new CommandContext
+        {
+            Args = values,
+            Confirm = question => _confirm(question, ct),
+            Log = message => Log.Info($"[{plugin.Name}] {message}"),
+        };
+        return await plugin.ExecuteAsync(context, ct);
     }
 
     // ------------------------------------------------------------------ programas, sites, mídia

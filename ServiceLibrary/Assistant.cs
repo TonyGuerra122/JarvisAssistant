@@ -1,5 +1,6 @@
 ﻿using ServiceLibrary.Audio;
 using ServiceLibrary.Commands;
+using ServiceLibrary.Plugins;
 using ServiceLibrary.Setup;
 using ServiceLibrary.VoiceClone;
 using System.Globalization;
@@ -49,7 +50,10 @@ public sealed partial class Assistant : IDisposable
         _post = post;
         _client = new(config.OpenJarvisUrl);
         _server = new(config);
-        _commands = new(config, ConfirmAsync, NotifyAsync, () => _quitRequested = true);
+        var plugins = config.CommandsEnabled && config.EnabledPlugins.Count > 0
+            ? PluginLoader.LoadAll(new HashSet<string>(config.EnabledPlugins, StringComparer.OrdinalIgnoreCase))
+            : [];
+        _commands = new(config, ConfirmAsync, plugins, NotifyAsync, () => _quitRequested = true);
         _player.PitchSemitones = config.VoicePitch;
         _player.EffectAmount = config.VoiceEffect;
         if (config.Voice.Equals("clone", StringComparison.OrdinalIgnoreCase)) _clone = new VoiceCloneServer(config.CloneVoicePort);

@@ -132,6 +132,12 @@ public sealed class AppConfig
     /// <summary>Permite que o Jarvis execute ações no PC (abrir programas, mídia, rotinas...).</summary>
     public bool CommandsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Plugins liberados: nomes das pastas em %APPDATA%\JarvisAssistant\plugins. Plugin é código de terceiros,
+    /// então nenhum roda sem estar nesta lista.
+    /// </summary>
+    public List<string> EnabledPlugins { get; set; } = [];
+
     /// <summary>Programas que ele pode abrir: nome falado → executável, caminho ou URI.</summary>
     public Dictionary<string, string> Programs { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
